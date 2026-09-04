@@ -36,68 +36,55 @@ Headline metric (set from class distribution): Balanced Multiclass Accuracy (mea
 
 | Item | File | Output |
 |---|---|---|
-| Project constants | `config.py` | Canonical class order, paths, image size, seed, `seed_everything()` |
-| Frozen train / validation / test split | `data.py` + `splits/split_v1.csv` | Manifest DataFrames, identical on every call and on every machine |
-| Shared metrics function | `metrics.py` | One fixed metric set for every model |
-| Results table | `results.py` + `results/runs/*.json` | One table, all models, same metric set |
-| Split verification | `verify_split.py` | Leakage check and split balance evidence for the report |
-| Interface stub | `preprocess.py` (signatures + `dummy_batch()`) | Lets B and C build before Module A is implemented |
-| Pinned environment | `requirements.txt` | The reproducibility standard |
+| Project constants | `config.py` | Canonical class order, paths, image size, random seed |
+| Data split and manifest loader | `data.py` + `splits/splits.csv` | One-time split generation with leakage check, manifest DataFrames |
+| Shared metrics function | `metrics.py` | Unified metric set across all models |
+| Results log | `results.csv` | Single summary table recording model performance |
+| Pinned environment | `requirements.txt` | Reproducibility standard |
 
 ### `config.py`
 
-Single source for anything more than one module has to agree on:
+Single source for constants shared across modules:
 
-```
-CLASS_NAMES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]   # canonical order, alphabetical
+```python
+CLASS_NAMES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]   # canonical alphabetical order
 SEED = 67
 IMAGE_SIZE = (224, 224)
-DATA_ROOT, SPLIT_PATH, RESULTS_DIR
-seed_everything(seed)   # seeds random, numpy, and the deep framework
+DATA_ROOT, SPLIT_PATH, RESULTS_PATH
+seed_everything(seed)   # seeds random, numpy, and deep learning framework
 ```
 
-The class order matters most. If B and C each define their own ordering, the confusion matrix axes and the per-class recall vectors do not line up, and the results table is wrong without anything ever raising an error.
+The alphabetical class order prevents axis misalignment in confusion matrices and per-class recall vectors across different models.
 
 ### `data.py`
 
-```
+```python
 load_metadata() -> DataFrame          # one row per image, from HAM10000_metadata.csv
-get_split(split=None) -> DataFrame    # "train" | "val" | "test", or all three
-SPLIT_VERSION = "v1"
+get_split(split=None) -> DataFrame    # "train" | "val" | "test", or full manifest
+generate_split()                      # one-time generation script for splits/splits.csv
 ```
 
-It returns **index manifests, never pixels**: columns `image_id, lesion_id, dx, dx_type, age, sex, localization, filepath, split`. 10,015 images at 600x450x3 uint8 is roughly 8.1 GB, so the arrays cannot be materialized at this layer. Module A's `preprocess.transform()` is what turns manifest rows into tensors, and it is the only code that opens image files.
+Returns index manifests with columns: `image_id, lesion_id, dx, dx_type, age, sex, localization, filepath, split`. Arrays are not materialized at this stage to avoid loading all images into memory simultaneously.
 
-**Split policy.** HAM10000 publishes no official split, so we generate one. The 10,015 images cover 7,470 unique lesions, so roughly 2,545 images are additional views of a lesion already in the set. Grouping on `lesion_id` is mandatory: without it, near-duplicate views of the same lesion land on both sides of the split and every number in the report is inflated. Grouping and stratification do not actually conflict here, because every image of a lesion carries the same `dx`. So: deduplicate to one row per `lesion_id`, stratify on `dx` at the lesion level, then expand back to images. That is exact on both constraints and needs no `StratifiedGroupKFold` approximation. Proportions 70 / 15 / 15.
+**Split policy.** HAM10000 publishes no official split. The 10,015 images cover 7,470 unique lesions, meaning roughly 2,545 images represent additional views of existing lesions. Grouping on `lesion_id` is mandatory to prevent identical lesions from appearing across training and testing sets. The split logic deduplicates by `lesion_id`, stratifies by `dx` at the lesion level (70% train, 15% validation, 15% test), maps back to all corresponding images, and asserts zero lesion overlap across splits.
 
-**The split is an artifact, not a function.** It is generated once and committed as `splits/split_v1.csv` (`image_id, lesion_id, dx, split`). `data.py` reads that file by default and regenerates only under an explicit `regenerate=True`, which writes a new version number rather than overwriting. A fixed seed alone does not survive a scikit-learn upgrade, a pandas row-order change, or a different filesystem glob order across three machines.
+**Static split artifact.** The split is generated once and committed as `splits/splits.csv`. All modules read directly from this static file to ensure identical splits across different environments.
 
-**Validation is for selection.** Hyperparameters, learning rate, and architecture choices are all chosen on the validation split. Test is opened once, at G3, and every model is scored on it once. Anything else makes the model comparison unusable.
+**Validation and testing.** Model selection and hyperparameter tuning occur exclusively on the validation set. The test set is evaluated once at the conclusion of experiments.
 
 ### `metrics.py`
 
-```
+```python
 compute_metrics(y_true, y_pred, y_proba=None) -> dict
 ```
 
-Always returns accuracy, balanced accuracy, macro precision, macro recall, macro F1, per-class recall, and the confusion matrix. When `y_proba` is supplied it adds macro AUROC and per-class AUROC. The probability argument is in the signature from day one even though nothing consumes it yet: both B's models and C's model produce probabilities natively.
+Calculates balanced accuracy, macro precision, macro recall, macro F1, per-class recall, and confusion matrix. Multi-class AUROC is computed when predicted probabilities are supplied.
 
-**Headline metric: balanced multiclass accuracy** (mean per-class sensitivity, equal to macro recall), set from the class distribution recorded in Section 1, which is 58 to 1. Macro F1 and per-class recall are reported next to it in every table. Overall accuracy is reported but never led with, since a model that answers `nv` for everything scores 67 percent on it.
+**Headline metric: balanced multiclass accuracy** (mean per-class sensitivity / macro recall), selected to handle the 58 to 1 class imbalance. Macro F1 and per-class recall accompany it in every summary. Raw accuracy is tracked as secondary context.
 
-### `results.py`
+### `results.csv`
 
-```
-log_run(model_name, module, config, metrics, runtime_s)   # writes results/runs/<model>_<timestamp>.json
-build_table(fmt="markdown")                               # collates every run into the report table
-```
-
-One JSON file per run, never a shared CSV. Three people appending rows to one `results.csv` on three branches produces a merge conflict on every single result; separate files never conflict. Each record carries `model_name, module, split_version, config, metrics{...}, runtime_s, timestamp`. `split_version` is what makes a stale result, computed against a superseded split, detectable instead of quietly averaged into the table.
-
-### `verify_split.py`
-
-Asserts that no `lesion_id` appears in more than one split, prints the per-class distribution of each split against the population, and confirms that `get_split()` returns identical manifests on repeat calls and on a second machine. Run before G2 and after any regeneration. Its output is the evidence for the evaluation protocol section of the report, not just a developer check.
-
-**Rationale:** if three people split the data independently, the model comparison is compromised and the report cannot be defended. Everything depends on this first.
+Every model run logs one row containing `model_name, module, config, metrics, runtime_s`. This provides a direct source for the comparative tables and charts in the final report.
 
 ---
 
