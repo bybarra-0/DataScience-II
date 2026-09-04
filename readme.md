@@ -101,7 +101,7 @@ Asserts that no `lesion_id` appears in more than one split, prints the per-class
 
 ---
 
-## 3. Open modules (pick one each)
+## 3. Open modules
 
 **Dependency:** Shared Infrastructure -> Module A -> Module B + C
 
@@ -215,7 +215,7 @@ From the syllabus. Project is 30 percent of the final grade.
 
 
 
-## Member: Edward N
+## Member: Edward
 
 - **Module:** Shared Infrastructure
 
