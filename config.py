@@ -7,17 +7,17 @@ import numpy as np
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # Dataset and artifact filepaths
-DATA_ROOT = PROJECT_ROOT  data
-METADATA_PATH = DATA_ROOT  HAM10000_metadata.csv
-SPLIT_DIR = PROJECT_ROOT  splits
-SPLIT_PATH = SPLIT_DIR  splits.csv
-RESULTS_PATH = PROJECT_ROOT  results.csv
+DATA_ROOT = PROJECT_ROOT / "data"
+METADATA_PATH = DATA_ROOT / "HAM10000_metadata.csv"
+SPLIT_DIR = PROJECT_ROOT / "splits"
+SPLIT_PATH = SPLIT_DIR / "splits.csv"
+RESULTS_PATH = PROJECT_ROOT / "results.csv"
 
 # Canonical alphabetical class order to keep confusion matrices aligned
-CLASS_NAMES = [akiec, bcc, bkl, df, mel, nv, vasc]
+CLASS_NAMES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
 NUM_CLASSES = len(CLASS_NAMES)
-LABEL_TO_IDX = {name idx for idx, name in enumerate(CLASS_NAMES)}
-IDX_TO_LABEL = {idx name for idx, name in enumerate(CLASS_NAMES)}
+LABEL_TO_IDX = {name: idx for idx, name in enumerate(CLASS_NAMES)}
+IDX_TO_LABEL = {idx: name for idx, name in enumerate(CLASS_NAMES)}
 
 # Standard image dimensions for convolutional backbones
 IMAGE_SIZE = (224, 224)

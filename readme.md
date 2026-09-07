@@ -3,7 +3,7 @@
 ```
 Dataset chosen: HAM10000 (Human Against Machine with 10000 training images)
 Link: https://doi.org/10.7910/DVN/DBW86T
-License and redistribution terms: CC BY-NC 4.0
+License and redistribution terms: CC BY-NC 4.0 (Creative Commons Attribution-NonCommercial 4.0 International)
 Modality: Dermatoscopic RGB images (600x450 px) and tabular metadata (age, sex, anatomical site, diagnosis type)
 Task and number of classes: Multi-class image classification (7 classes)
 Approximate size (samples, disk): 10,015 images (representing 7,470 unique lesions), ~3.0 GB uncompressed (2.6 GB images + metadata)
