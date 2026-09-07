@@ -75,10 +75,10 @@ Returns index manifests with columns: `image_id, lesion_id, dx, dx_type, age, se
 ### `metrics.py`
 
 ```python
-compute_metrics(y_true, y_pred, y_proba=None) -> dict
+compute_metrics(y_true, y_pred) -> dict
 ```
 
-Calculates balanced accuracy, macro precision, macro recall, macro F1, per-class recall, and confusion matrix. Multi-class AUROC is computed when predicted probabilities are supplied.
+Calculates balanced accuracy, accuracy, macro precision, macro recall, macro F1, per-class recall, and confusion matrix.
 
 **Headline metric: balanced multiclass accuracy** (mean per-class sensitivity / macro recall), selected to handle the 58 to 1 class imbalance. Macro F1 and per-class recall accompany it in every summary. Raw accuracy is tracked as secondary context.
 
