@@ -86,6 +86,21 @@ Calculates balanced accuracy, macro precision, macro recall, macro F1, per-class
 
 Every model run logs one row containing `model_name, module, config, metrics, runtime_s`. This provides a direct source for the comparative tables and charts in the final report.
 
+### `requirements.txt`
+
+| Module | Package | Purpose |
+|---|---|---|
+| Shared Infrastructure | `numpy` | Array handling, seed management |
+| Shared Infrastructure | `pandas` | Metadata loading, manifest indexing |
+| Shared Infrastructure / B | `scikit-learn` | Stratified splitting, metrics, baseline models |
+| Shared Infrastructure / B | `scipy` | Scientific computing support for scikit-learn |
+| Module A (Preprocessing) | `Pillow` | Image loading and resizing |
+| Module B / C (Reporting) | `matplotlib` | Loss curves and evaluation plots |
+| Module B / C (Reporting) | `seaborn` | Confusion matrix heatmaps |
+| Module C (Deep Learning) | `tensorflow` | CNN construction, pretrained architectures |
+| All Modules | `tqdm` | Progress tracking for image loops and batch processing |
+
+
 ---
 
 ## 3. Open modules

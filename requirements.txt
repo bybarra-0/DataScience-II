@@ -1,0 +1,18 @@
+# Data handling and infrastructure
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+
+# Image loading and preprocessing (Module A)
+Pillow>=10.0.0
+
+# Classical machine learning and metrics (Module B and Infrastructure)
+scikit-learn>=1.3.0
+scipy>=1.11.0
+
+# Deep learning and pretrained models (Module C)
+tensorflow>=2.15.0
+
+# Plotting and progress tracking
+matplotlib>=3.8.0
+seaborn>=0.13.0
+tqdm>=4.66.0
