@@ -120,7 +120,7 @@ Module A implements `preprocess.transform()`. Modules B and C build against the 
 
 ### Module B: Classical baselines
 
-- 3 to 4 models among: Logistic Regression, Random Forest, SVM, KNN, Decision Tree.
+- 3 to 4 models among: Logistic Regression, Random Forest, SVM, KNN, Decision Tree, Naive Bayes.
 - Hyperparameter search for each
 - Runtime and memory notes
 
