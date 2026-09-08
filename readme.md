@@ -120,13 +120,12 @@ Module A implements `preprocess.transform()`. Modules B and C build against the 
 
 ### Module B: Classical baselines
 
-- 3 to 4 models among: Logistic Regression, Random Forest, SVM, KNN, Decision Tree, Naive Bayes.
-- Hyperparameter search for each
-- Runtime and memory notes
+- 3 to 4 models among: Logistic Regression, Random Forest, SVM, KNN, Decision Tree, Naive Bayes. Apply `class_weight="balanced"` if using Logistic Regression, Random Forest, or SVM to prevent majority-class collapse.
+- Feature standardization: Wrap estimators in `StandardScaler` pipelines to normalize inputs for distance-based and margin-based models.
+- Hyperparameter search: Tune parameters using Stratified K-Fold cross-validation on the training split, optimizing for `balanced_accuracy`.
+- Results and visualization: Append run metrics and fit runtimes to `results.csv`. Export confusion matrix heatmaps to `figures/`.
 
-Input representation comes from Module A and is fixed before the hyperparameter search starts. It may differ from the deep model's input.
-
-Imports `data.py` and `metrics.py`. Writes no split logic and no metric of its own.
+Input representation comes from Module A via `preprocess.get_classical_data()`. Writes no split logic and no metric of its own.
 
 ### Module C: Deep model
 
@@ -179,7 +178,7 @@ Edward sets up the final report document skeleton, headings, figure placeholders
 | Gate | Target | Must exist |
 |---|---|---|
 | G1 | Before proposal due on Sep 18 | Dataset downloaded and loading, one sample batch inspected |
-| G2 | Before 10/15 | Split and metrics frozen, `splits/splits.csv` committed and `verify_split.py` passing. B and C each have one model training on dummy or real data. |
+| G2 | Before 10/15 | Split and metrics frozen, `splits/splits.csv` committed. B and C each have one model training on dummy or real data. |
 | G3 | Before 10/31 | Every model produces the full metric set on the real split |
 | G4 | Two weeks before final report | Results table populated, all figures drawn |
 
@@ -190,8 +189,8 @@ A gate is passed by showing running code.
 ## 6. Rules for consistency
 
 - One repo, one branch per person, no code emailed around. `Project Overview.md` lives in the repo, since it is the document that defines everyone's interfaces.
-- One frozen split, committed as `splits/split_v1.csv` and grouped on `lesion_id`, and one metrics function, both written before any model is trained.
-- Every result reported with the same metric set, logged through `results.py`, and tagged with the `split_version` it was computed against.
+- One frozen split, committed as `splits/splits.csv` and grouped on `lesion_id`, and one metrics function, both written before any model is trained.
+- Every result reported with the same metric set, logged to results.csv.
 - Model selection happens on validation. The test split is opened once, at G3.
 
 ---

@@ -1,0 +1,52 @@
+1. OBJECTIVE: implement, tune, and benchmark 3 to 4 classical machine on the dataset.
+
+Primary script location: skeleton for baselines.py (in project root)
+Serialized models folder: models/baselines/
+Exported figures folder: figures/
+
+
+2. SHARED INFRASTRUCTURE INTEGRATION
+
+Do not write custom split logic or custom metric functions. All evaluation 
+must use the shared infrastructure:
+
+- config.py: Import SEED (use for random_state), CLASS_NAMES, and RESULTS_PATH.
+- metrics.py: Use compute_metrics(y_true, y_pred) for all evaluations.
+- preprocess.py:
+    Use dummy_batch(batch_size, modality="classical") to build pipelines now.
+    Swap to get_classical_data() once Module A finishes real feature extraction.
+- results.csv: Append every model run with columns: model_name,module,config,balanced_accuracy,accuracy,macro_f1,runtime_s
+
+
+3. WORKFLOW
+
+Phase 1: Immediate Development (Dummy Data)
+1. Verify environment: run 'pip install -r requirements.txt'.
+2. Create baselines.py in the root directory using the generalized skeleton.
+3. Select 3 to 4 classical models from: Logistic Regression, Random Forest, SVM, KNN, Decision Tree, Naive Bayes
+4. Test model fitting, hyperparameter grid searching, and results logging using dummy_batch(batch_size=200, modality="classical").
+5. Verify that results.csv records your test rows and figures/ saves confusion matrix heatmaps.
+
+Phase 2: Transition to Real Features (When Module A Completes)
+1. Coordinate with Module A on the feature format (e.g. PCA features or flat downsampled pixels).
+2. Replace dummy_batch with:
+   X_train, y_train = get_classical_data(split_name="train")
+   X_val, y_val = get_classical_data(split_name="val")
+3. Re-run your baseline models and record genuine training runtimes.
+4. Run hyperparameter tuning on X_train using StratifiedKFold.
+5. Evaluate your best tuned configurations on X_val.
+6. The test split is held out and opened for final reporting.
+
+
+4. IMPLEMENTATION NOTES
+
+- Set class_weight="balanced" if using LogisticRegression, RandomForest, DecisionTree, or SVC. 
+- Feature Scaling: Distance and margin-based models (SVM, KNN, Logistic Regression) require normalized features. Always wrap them in make_pipeline(StandardScaler(), model). Tree-based models (Random Forest, Decision Tree) do not require scaling.
+- Deterministic Execution: Always pass random_state=SEED to estimators, k-fold splitters, and grid searches.
+
+
+5. DELIVERABLES
+
+- Fully implemented baselines.py
+- Populated entries in results.csv comparing untuned vs tuned baselines.
+- Exported confusion matrix heatmaps in figures/ (e.g. cm_randomforest.png).

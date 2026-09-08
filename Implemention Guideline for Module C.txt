@@ -1,0 +1,55 @@
+1. Objective: implement, train, tune, and benchmark a deep learning model on the dataset.
+
+Primary script location: skeleton for model.py (in project root), with optional pretrained.py
+Serialized models folder: models/deep/
+Exported figures folder: figures/
+
+
+2. Shared infrastructure integration
+
+Do not write custom split logic or custom metric functions. All evaluation 
+must use the shared infrastructure:
+
+- config.py: Import SEED, CLASS_NAMES, NUM_CLASSES, IMAGE_SIZE, INPUT_SHAPE, RESULTS_PATH, and seed_everything. Call seed_everything(SEED) at script start.
+- metrics.py: Use compute_metrics(y_true, y_pred) for all evaluations. Convert model softmax probability outputs to class indices via np.argmax(probs, axis=1) before passing.
+- preprocess.py:
+    Use dummy_batch(batch_size, modality="deep") to build and test pipelines immediately.
+    Swap to real image loading or generator functions once Module A completes.
+- results.csv: Append every model run with columns: model_name,module,config,balanced_accuracy,accuracy,macro_f1,runtime_s (set module="C").
+
+
+3. Workflow
+
+Phase 1: Immediate Development (Dummy Data)
+1. Verify environment: run "pip install -r requirements.txt" (TensorFlow 2.15+).
+2. Open model.py in the root directory.
+3. Implement build_model() with the chosen deep learning architecture (e.g. custom CNN, transfer learning backbone, autoencoder, or MLP).
+4. Test training execution, loss curve tracking, callbacks, and evaluation logging using dummy_batch(batch_size=32, modality="deep").
+5. Verify that results.csv records test rows with module="C" and figures/ saves training curves and confusion matrix heatmaps.
+
+Phase 2: Transition to Real Data (When Module A Completes)
+1. Integrate data pipeline with Module A image transforms or tf.data generators.
+2. Address 58 to 1 class imbalance by computing balanced class weights on the training split and passing them to model.fit(class_weight=...).
+3. Train the chosen deep model on the train split and evaluate on the val split. Record genuine wall-clock training time.
+4. Run hyperparameter sweeps (learning rates, batch sizes, dropout rates, optimizers). Save best weights to models/deep/.
+5. Generate and export training and validation loss/accuracy curves and confusion matrix heatmaps to figures/.
+6. If scope allows, build pretrained.py to fine-tune an ImageNet backbone (InceptionV3, ResNet50V2, or EfficientNetB0).
+7. The test split is held out and opened once for final reporting.
+
+
+4. Implementation notes
+
+- Class imbalance handling: Compute class weights using sklearn.utils.class_weight.compute_class_weight("balanced", classes=np.arange(NUM_CLASSES), y=y_train_indices). Pass the resulting dictionary to model.fit(class_weight=class_weights).
+- Final layer and loss: Use Dense(NUM_CLASSES, activation="softmax"). Pair with sparse_categorical_crossentropy if targets are integer indices, or categorical_crossentropy if one-hot encoded.
+- Metric integration: compute_metrics requires 1D arrays of integer indices or string labels. Call np.argmax(model.predict(X_val), axis=1) before evaluation.
+- Overfitting controls: Include Dropout (rates 0.2 to 0.5), BatchNormalization, and EarlyStopping (monitoring val_loss, patience 5 to 10, restore_best_weights=True).
+- Checkpointing: Save model artifacts to models/deep/ (e.g. models/deep/best_model.keras) using ModelCheckpoint.
+- Deterministic execution: Call seed_everything(SEED) from config.py before model construction.
+
+
+5. Deliverables
+
+- Fully implemented model.py (and pretrained.py if implemented)
+- Saved model checkpoints in models/deep/
+- Populated entries in results.csv comparing architecture configurations
+- Exported loss and accuracy curves and confusion matrix heatmaps in figures/ (e.g. loss_curve_deep.png, cm_deep.png)

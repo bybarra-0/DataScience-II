@@ -1,1 +1,4 @@
 model_name,module,config,balanced_accuracy,accuracy,macro_f1,runtime_s
+DecisionTree,B,default,0.2102,0.22,0.2069,0.01
+LogisticRegression,B,default,0.1467,0.16,0.1322,0.01
+DecisionTree_Tuned,B,"tuned_{'decisiontreeclassifier__max_depth': None, 'decisiontreeclassifier__min_samples_split': 5}",0.234,0.24,0.2373,3.17
