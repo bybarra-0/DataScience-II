@@ -179,7 +179,7 @@ Edward sets up the final report document skeleton, headings, figure placeholders
 | Gate | Target | Must exist |
 |---|---|---|
 | G1 | Before proposal due on Sep 18 | Dataset downloaded and loading, one sample batch inspected |
-| G2 | Before 10/15 | Split and metrics frozen, `splits/split_v1.csv` committed and `verify_split.py` passing. B and C each have one model training on dummy or real data. |
+| G2 | Before 10/15 | Split and metrics frozen, `splits/splits.csv` committed and `verify_split.py` passing. B and C each have one model training on dummy or real data. |
 | G3 | Before 10/31 | Every model produces the full metric set on the real split |
 | G4 | Two weeks before final report | Results table populated, all figures drawn |
 
