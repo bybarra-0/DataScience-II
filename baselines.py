@@ -110,19 +110,28 @@ if __name__ == "__main__":
     X_train, y_train = dummy_batch(batch_size=200, modality="classical")
     X_val, y_val = dummy_batch(batch_size=50, modality="classical")
 
-    # 2. Define any dictionary of candidate classical estimators
-    # Below are examples for DecisionTree, LogisticRegression
-    from sklearn.tree import DecisionTreeClassifier
+    # 2. Define the four classical baseline estimators specified in the proposal
     from sklearn.linear_model import LogisticRegression
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.svm import SVC
+    from sklearn.ensemble import RandomForestClassifier
 
     candidate_models = {
-        "DecisionTree": build_pipeline(
-            DecisionTreeClassifier(class_weight="balanced", random_state=SEED),
-            scale=False
-        ),
         "LogisticRegression": build_pipeline(
             LogisticRegression(max_iter=500, class_weight="balanced", random_state=SEED),
             scale=True
+        ),
+        "KNN": build_pipeline(
+            KNeighborsClassifier(n_neighbors=5),
+            scale=True
+        ),
+        "SVM": build_pipeline(
+            SVC(class_weight="balanced", random_state=SEED),
+            scale=True
+        ),
+        "RandomForest": build_pipeline(
+            RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=SEED),
+            scale=False
         )
     }
 
@@ -131,10 +140,10 @@ if __name__ == "__main__":
     for name, model in candidate_models.items():
         evaluate_model(model, name, "default", X_train, y_train, X_val, y_val)
 
-    # 4. Tune any selected model using an arbitrary parameter grid
+    # 4. Tune selected baseline model using cross-validation
     print("\nRunning hyperparameter tuning:")
-    dt_param_grid = {
-        "decisiontreeclassifier__max_depth": [3, 5, 10, None],
-        "decisiontreeclassifier__min_samples_split": [2, 5]
+    rf_param_grid = {
+        "randomforestclassifier__n_estimators": [50, 100],
+        "randomforestclassifier__max_depth": [5, 10, None]
     }
-    tune_model(candidate_models["DecisionTree"], dt_param_grid, "DecisionTree", X_train, y_train, X_val, y_val)
+    tune_model(candidate_models["RandomForest"], rf_param_grid, "RandomForest", X_train, y_train, X_val, y_val)

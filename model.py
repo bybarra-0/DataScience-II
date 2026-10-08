@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from sklearn.utils.class_weight import compute_class_weight
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
 from config import (
     CLASS_NAMES,
@@ -28,20 +28,21 @@ MODELS_DIR = PROJECT_ROOT / "models" / "deep"
 def encode_labels(y: np.ndarray) -> np.ndarray:
     # Convert string class names to integer indices aligned with CLASS_NAMES
     if len(y) > 0 and isinstance(y[0], str):
-        return np.array([LABEL_TO_IDX[label] for label in y], dtype=np.int32)
-    return np.array(y, dtype=np.int32)
+        return np.array([LABEL_TO_IDX[label] for label in y], dtype=np.int64)
+    return np.array(y, dtype=np.int64)
 
-def calculate_class_weights(y_indices: np.ndarray) -> dict:
-    # Counterbalance class imbalance while handling missing classes during dummy testing
+def calculate_class_weights(y_indices: np.ndarray) -> torch.Tensor:
+    # Counterbalance severe class imbalance during loss calculation
     present_classes = np.unique(y_indices)
     weights = compute_class_weight(
         class_weight="balanced",
         classes=present_classes,
         y=y_indices
     )
-    weight_dict = {cls: 1.0 for cls in range(NUM_CLASSES)}
-    weight_dict.update({int(cls): float(w) for cls, w in zip(present_classes, weights)})
-    return weight_dict
+    weight_arr = np.ones(NUM_CLASSES, dtype=np.float32)
+    for cls, w in zip(present_classes, weights):
+        weight_arr[int(cls)] = float(w)
+    return torch.tensor(weight_arr, dtype=torch.float32)
 
 def log_result(model_name: str, config_desc: str, metrics: dict, runtime_s: float) -> None:
     # Append model run to shared results.csv under module C
@@ -77,20 +78,20 @@ def plot_confusion_matrix(cm: list, model_name: str) -> None:
     plt.savefig(output_path, dpi=300)
     plt.close()
 
-def plot_history(history: keras.callbacks.History, model_name: str) -> None:
+def plot_history(history: dict, model_name: str) -> None:
     # Plot training and validation loss and accuracy trajectories
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
-    axes[0].plot(history.history.get("loss", []), label="Train Loss")
-    axes[0].plot(history.history.get("val_loss", []), label="Val Loss")
+    axes[0].plot(history.get("train_loss", []), label="Train Loss")
+    axes[0].plot(history.get("val_loss", []), label="Val Loss")
     axes[0].set_title(f"{model_name} Loss")
     axes[0].set_xlabel("Epoch")
     axes[0].set_ylabel("Loss")
     axes[0].legend()
 
-    axes[1].plot(history.history.get("accuracy", []), label="Train Acc")
-    axes[1].plot(history.history.get("val_accuracy", []), label="Val Acc")
+    axes[1].plot(history.get("train_acc", []), label="Train Acc")
+    axes[1].plot(history.get("val_acc", []), label="Val Acc")
     axes[1].set_title(f"{model_name} Accuracy")
     axes[1].set_xlabel("Epoch")
     axes[1].set_ylabel("Accuracy")
@@ -101,27 +102,56 @@ def plot_history(history: keras.callbacks.History, model_name: str) -> None:
     plt.savefig(output_path, dpi=300)
     plt.close()
 
-def build_model(input_shape: tuple = INPUT_SHAPE, num_classes: int = NUM_CLASSES) -> keras.Model:
-    # Interface stub: Module C owner defines and compiles their chosen architecture here
-    # (e.g. custom CNN, transfer learning backbone, autoencoder, or MLP)
-    raise NotImplementedError("Module C owner will define the model architecture here.")
+class CustomCNNStub(nn.Module):
+    # Base template for Module C owner to define custom convolutional layers
+    def __init__(self, num_classes: int = NUM_CLASSES):
+        super().__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((1, 1))
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(0.3),
+            nn.Linear(128, num_classes)
+        )
 
-def _build_pipeline_probe(input_shape: tuple = INPUT_SHAPE, num_classes: int = NUM_CLASSES) -> keras.Model:
-    # Minimal linear model used exclusively to verify pipeline integration before architecture selection
-    inputs = keras.Input(shape=input_shape)
-    x = layers.GlobalAveragePooling2D()(inputs)
-    outputs = layers.Dense(num_classes, activation="softmax")(x)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.features(x)
+        return self.classifier(x)
 
-    probe = keras.Model(inputs=inputs, outputs=outputs, name="PipelineProbe")
-    probe.compile(
-        optimizer="adam",
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"]
-    )
-    return probe
+def build_model(num_classes: int = NUM_CLASSES) -> nn.Module:
+    # Interface stub: Module C owner defines and returns custom CNN here
+    raise NotImplementedError("Module C owner will define the custom CNN architecture here.")
+
+class _PipelineProbe(nn.Module):
+    # Minimal network used exclusively to verify pipeline integration before architecture selection
+    def __init__(self, num_classes: int = NUM_CLASSES):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Flatten(),
+            nn.Linear(3, num_classes)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+def _build_pipeline_probe(num_classes: int = NUM_CLASSES) -> nn.Module:
+    return _PipelineProbe(num_classes=num_classes)
 
 def train_and_evaluate(
-    model: keras.Model,
+    model: nn.Module,
     model_name: str,
     config_desc: str,
     X_train: np.ndarray,
@@ -130,56 +160,134 @@ def train_and_evaluate(
     y_val: np.ndarray,
     epochs: int = 15,
     batch_size: int = 32,
+    learning_rate: float = 1e-3,
     use_class_weights: bool = True,
-    save_plots: bool = True
+    save_plots: bool = True,
+    device: str = None
 ) -> dict:
-    # Model-agnostic training and evaluation harness for any Keras architecture
+    # Model-agnostic training and evaluation harness for any PyTorch module
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    selected_device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    target_device = torch.device(selected_device)
+    model = model.to(target_device)
+
     y_train_idx = encode_labels(y_train)
     y_val_idx = encode_labels(y_val)
 
-    class_weights = calculate_class_weights(y_train_idx) if use_class_weights else None
+    train_dataset = TensorDataset(
+        torch.from_numpy(X_train).float(),
+        torch.from_numpy(y_train_idx).long()
+    )
+    val_dataset = TensorDataset(
+        torch.from_numpy(X_val).float(),
+        torch.from_numpy(y_val_idx).long()
+    )
 
-    checkpoint_path = MODELS_DIR / f"{model_name.lower()}_best.keras"
-    callbacks = [
-        keras.callbacks.EarlyStopping(
-            monitor="val_loss",
-            patience=5,
-            restore_best_weights=True,
-            verbose=1
-        ),
-        keras.callbacks.ReduceLROnPlateau(
-            monitor="val_loss",
-            factor=0.5,
-            patience=3,
-            min_lr=1e-6,
-            verbose=1
-        ),
-        keras.callbacks.ModelCheckpoint(
-            filepath=str(checkpoint_path),
-            monitor="val_loss",
-            save_best_only=True,
-            verbose=1
-        )
-    ]
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+
+    weights = calculate_class_weights(y_train_idx).to(target_device) if use_class_weights else None
+    criterion = nn.CrossEntropyLoss(weight=weights)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=0.5,
+        patience=3,
+        min_lr=1e-6
+    )
+
+    checkpoint_path = MODELS_DIR / f"{model_name.lower()}_best.pt"
+    history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+
+    best_val_loss = float("inf")
+    patience = 5
+    patience_counter = 0
+    best_weights = None
 
     start_time = time.time()
-    history = model.fit(
-        X_train,
-        y_train_idx,
-        validation_data=(X_val, y_val_idx),
-        epochs=epochs,
-        batch_size=batch_size,
-        class_weight=class_weights,
-        callbacks=callbacks,
-        verbose=1
-    )
+    for epoch in range(1, epochs + 1):
+        model.train()
+        running_train_loss = 0.0
+        correct_train = 0
+        total_train = 0
+
+        for images, labels in train_loader:
+            images = images.to(target_device)
+            labels = labels.to(target_device)
+
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_train_loss += loss.item() * images.size(0)
+            preds = torch.argmax(outputs, dim=1)
+            correct_train += (preds == labels).sum().item()
+            total_train += labels.size(0)
+
+        epoch_train_loss = running_train_loss / max(1, total_train)
+        epoch_train_acc = correct_train / max(1, total_train)
+
+        model.eval()
+        running_val_loss = 0.0
+        correct_val = 0
+        total_val = 0
+
+        with torch.no_grad():
+            for images, labels in val_loader:
+                images = images.to(target_device)
+                labels = labels.to(target_device)
+
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+
+                running_val_loss += loss.item() * images.size(0)
+                preds = torch.argmax(outputs, dim=1)
+                correct_val += (preds == labels).sum().item()
+                total_val += labels.size(0)
+
+        epoch_val_loss = running_val_loss / max(1, total_val)
+        epoch_val_acc = correct_val / max(1, total_val)
+
+        scheduler.step(epoch_val_loss)
+
+        history["train_loss"].append(epoch_train_loss)
+        history["val_loss"].append(epoch_val_loss)
+        history["train_acc"].append(epoch_train_acc)
+        history["val_acc"].append(epoch_val_acc)
+
+        print(f"Epoch {epoch}/{epochs} - Train Loss: {epoch_train_loss:.4f} - Val Loss: {epoch_val_loss:.4f} - Val Acc: {epoch_val_acc:.4f}")
+
+        # Check early stopping and checkpointing criteria
+        if epoch_val_loss < best_val_loss:
+            best_val_loss = epoch_val_loss
+            patience_counter = 0
+            best_weights = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            torch.save(model.state_dict(), checkpoint_path)
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early stopping triggered at epoch {epoch}")
+                break
+
     runtime_s = time.time() - start_time
 
-    val_probs = model.predict(X_val)
-    val_preds = np.argmax(val_probs, axis=1)
+    # Restore top weights before evaluation
+    if best_weights is not None:
+        model.load_state_dict(best_weights)
 
-    metrics = compute_metrics(y_val_idx, val_preds)
+    model.eval()
+    all_val_preds = []
+    with torch.no_grad():
+        for images, _ in val_loader:
+            images = images.to(target_device)
+            outputs = model(images)
+            preds = torch.argmax(outputs, dim=1).cpu().numpy()
+            all_val_preds.extend(preds)
+
+    metrics = compute_metrics(y_val_idx, all_val_preds)
     log_result(model_name, config_desc, metrics, runtime_s)
 
     if save_plots:
@@ -197,7 +305,7 @@ if __name__ == "__main__":
     X_val, y_val = dummy_batch(batch_size=32, modality="deep")
 
     # 2. Module C owner creates their chosen model instance
-    # Replace _build_pipeline_probe with build_model once implemented
+    # Replace _build_pipeline_probe with build_model once custom architecture is chosen
     model = _build_pipeline_probe()
 
     # 3. Train and benchmark the selected architecture

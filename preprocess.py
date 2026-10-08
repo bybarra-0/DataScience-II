@@ -2,8 +2,8 @@ import numpy as np
 from config import IMAGE_SIZE, CLASS_NAMES
 
 def transform(image_path: str) -> np.ndarray:
-    # Interface signature: converts an image file into a normalized (224, 224, 3) array
-    # To be replaced by Module A with real Pillow or OpenCV reading and scaling logic
+    # Interface signature: converts an image file into a normalized (3, 224, 224) array
+    # To be replaced by Module A with real Pillow or torchvision reading and scaling logic
     raise NotImplementedError("Real image transformation will be implemented by Module A.")
 
 def dummy_batch(batch_size: int = 32, modality: str = "deep"):
@@ -11,8 +11,8 @@ def dummy_batch(batch_size: int = 32, modality: str = "deep"):
     y = np.random.choice(CLASS_NAMES, size=batch_size)
 
     if modality == "deep":
-        # Simulates a batch of RGB image tensors normalized to [0, 1]
-        X = np.random.rand(batch_size, IMAGE_SIZE[0], IMAGE_SIZE[1], 3).astype(np.float32)
+        # Simulates a batch of image tensors in channels-first order expected by pytorch conv2d
+        X = np.random.rand(batch_size, 3, IMAGE_SIZE[0], IMAGE_SIZE[1]).astype(np.float32)
         return X, y
     elif modality == "classical":
         # Simulates flattened tabular feature vectors (e.g. 64 extracted features)

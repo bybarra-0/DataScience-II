@@ -21,19 +21,22 @@ IDX_TO_LABEL = {idx: name for idx, name in enumerate(CLASS_NAMES)}
 
 # Standard image dimensions for convolutional backbones
 IMAGE_SIZE = (224, 224)
-INPUT_SHAPE = (224, 224, 3)
+INPUT_SHAPE = (3, 224, 224)
 
 # Default random seed
 SEED = 67
 
 def seed_everything(seed: int = SEED) -> None:
-    # Set seed across python standard library, numpy, and tensorflow
+    # Set seed across python runtime, numpy, and pytorch for reproducible experiments
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
 
     try:
-        import tensorflow as tf
-        tf.random.set_seed(seed)
+        import torch
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
     except ImportError:
         pass

@@ -50,8 +50,9 @@ Single source for constants shared across modules:
 CLASS_NAMES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]   # canonical alphabetical order
 SEED = 67
 IMAGE_SIZE = (224, 224)
+INPUT_SHAPE = (3, 224, 224)
 DATA_ROOT, SPLIT_PATH, RESULTS_PATH
-seed_everything(seed)   # seeds random, numpy, and deep learning framework
+seed_everything(seed)   # seeds random, numpy, and pytorch
 ```
 
 The alphabetical class order prevents axis misalignment in confusion matrices and per-class recall vectors across different models.
@@ -97,7 +98,7 @@ Every model run logs one row containing `model_name, module, config, metrics, ru
 | Module A (Preprocessing) | `Pillow` | Image loading and resizing |
 | Module B / C (Reporting) | `matplotlib` | Loss curves and evaluation plots |
 | Module B / C (Reporting) | `seaborn` | Confusion matrix heatmaps |
-| Module C (Deep Learning) | `tensorflow` | CNN construction, pretrained architectures |
+| Module C (Deep Learning) | `torch`, `torchvision` | CNN construction, EfficientNetB0 transfer learning |
 | All Modules | `tqdm` | Progress tracking for image loops and batch processing |
 
 
@@ -120,7 +121,7 @@ Module A implements `preprocess.transform()`. Modules B and C build against the 
 
 ### Module B: Classical baselines
 
-- 3 to 4 models among: Logistic Regression, Random Forest, SVM, KNN, Decision Tree, Naive Bayes. Apply `class_weight="balanced"` if using Logistic Regression, Random Forest, or SVM to prevent majority-class collapse.
+- 4 models specified in the proposal: Logistic Regression, K-Nearest Neighbors (KNN), Support Vector Machines (SVM), and Random Forests. Apply `class_weight="balanced"` to Logistic Regression, SVM, and Random Forest to prevent majority-class collapse.
 - Feature standardization: Wrap estimators in `StandardScaler` pipelines to normalize inputs for distance-based and margin-based models.
 - Hyperparameter search: Tune parameters using Stratified K-Fold cross-validation on the training split, optimizing for `balanced_accuracy`.
 - Results and visualization: Append run metrics and fit runtimes to `results.csv`. Export confusion matrix heatmaps to `figures/`.
@@ -129,12 +130,11 @@ Input representation comes from Module A via `preprocess.get_classical_data()`. 
 
 ### Module C: Deep model
 
-- 1 model, depending on dataset modality (text, image, audio), among: MLP, CNN, RNN, or Convolutional autoencoder.
-- Training loop, hyperparameters, overfitting controls
-- Training and validation curves
-- One pretrained variant if scope allows (ImageNet backbones such as ResNet50V2, InceptionV3, EfficientNetB0 for images or spectrograms, a pretrained audio or tabular encoder otherwise)
-
-Same imports as Module B.
+- Custom convolutional neural network (CNN) constructed in PyTorch.
+- Transfer learning pipeline with a fine-tuned EfficientNetB0 backbone in PyTorch.
+- Training loops, hyperparameters, learning rate scheduling, and overfitting controls.
+- Training and validation loss and accuracy curves exported to `figures/`.
+- Run metrics appended to `results.csv` and confusion matrix heatmaps saved to `figures/`.
 
 ---
 
@@ -242,9 +242,9 @@ From the syllabus. Project is 30 percent of the final grade.
 
 - **Module B:** Classical baselines
 - **Coding:** 
-  - `baselines.py`: 3-4 baseline models
-- **Experimental:** Hyperparameter search per model, k sweep for KNN, kernel comparison for SVM, runtime and memory measurement
-- **Writing:** Baseline models methods, baseline experimental setup, baseline results analysis
+  - `baselines.py`: Logistic Regression, KNN, SVM, Random Forests
+- **Experimental:** Hyperparameter search per model, k sweep for KNN, kernel comparison for SVM, runtime and memory measurement, etc.
+- **Writing:** Baseline models methods, baseline experimental setup, baseline results analysis.
 
 
 
@@ -252,7 +252,7 @@ From the syllabus. Project is 30 percent of the final grade.
 
 - **Module C:** Deep Learning model
 - **Coding:** 
-  - `model.py`: architecture, training loop, callbacks, checkpointing. 
-  - `pretrained.py` for pretrained model if time permits
+  - `model.py`: custom CNN.
+  - `pretrained.py` for pretrained EfficientNetB0.
 - **Experimental:** Learning rate and batch size sweep, regularization or dropout comparison, from-scratch versus pretrained comparison, training and validation curves
 - **Writing:** Deep model architecture, training setup, deep model results analysis
