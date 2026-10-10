@@ -154,14 +154,17 @@ def train_and_evaluate(
     model: nn.Module,
     model_name: str,
     config_desc: str,
-    X_train: np.ndarray,
-    y_train: np.ndarray,
-    X_val: np.ndarray,
-    y_val: np.ndarray,
+    train_loader: DataLoader = None,
+    val_loader: DataLoader = None,
+    X_train: np.ndarray = None,
+    y_train: np.ndarray = None,
+    X_val: np.ndarray = None,
+    y_val: np.ndarray = None,
     epochs: int = 15,
     batch_size: int = 32,
     learning_rate: float = 1e-3,
     use_class_weights: bool = True,
+    class_weights: torch.Tensor = None,
     save_plots: bool = True,
     device: str = None
 ) -> dict:
@@ -171,22 +174,48 @@ def train_and_evaluate(
     target_device = torch.device(selected_device)
     model = model.to(target_device)
 
-    y_train_idx = encode_labels(y_train)
-    y_val_idx = encode_labels(y_val)
+    # Accommodate legacy array-based positional calls during Phase 1 migration
+    if isinstance(train_loader, np.ndarray):
+        X_train, y_train = train_loader, val_loader
+        train_loader, val_loader = None, None
 
-    train_dataset = TensorDataset(
-        torch.from_numpy(X_train).float(),
-        torch.from_numpy(y_train_idx).long()
-    )
-    val_dataset = TensorDataset(
-        torch.from_numpy(X_val).float(),
-        torch.from_numpy(y_val_idx).long()
-    )
+    # Construct streaming loaders if in-memory arrays were supplied
+    if train_loader is None:
+        if X_train is None or y_train is None:
+            raise ValueError("Either train_loader or (X_train, y_train) must be provided.")
+        y_train_idx = encode_labels(y_train)
+        train_dataset = TensorDataset(
+            torch.from_numpy(X_train).float(),
+            torch.from_numpy(y_train_idx).long()
+        )
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    if val_loader is None:
+        if X_val is None or y_val is None:
+            raise ValueError("Either val_loader or (X_val, y_val) must be provided.")
+        y_val_idx = encode_labels(y_val)
+        val_dataset = TensorDataset(
+            torch.from_numpy(X_val).float(),
+            torch.from_numpy(y_val_idx).long()
+        )
+        val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-    weights = calculate_class_weights(y_train_idx).to(target_device) if use_class_weights else None
+    # Derive or assign loss balancing weights
+    if use_class_weights:
+        if class_weights is not None:
+            weights = class_weights.to(target_device)
+        elif hasattr(train_loader.dataset, "tensors") and len(train_loader.dataset.tensors) > 1:
+            targets_idx = train_loader.dataset.tensors[1].cpu().numpy()
+            weights = calculate_class_weights(targets_idx).to(target_device)
+        elif hasattr(train_loader.dataset, "targets"):
+            targets = train_loader.dataset.targets
+            targets_idx = encode_labels(targets if isinstance(targets, np.ndarray) else np.array(targets))
+            weights = calculate_class_weights(targets_idx).to(target_device)
+        else:
+            weights = None
+    else:
+        weights = None
+
     criterion = nn.CrossEntropyLoss(weight=weights)
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -280,14 +309,16 @@ def train_and_evaluate(
 
     model.eval()
     all_val_preds = []
+    all_val_targets = []
     with torch.no_grad():
-        for images, _ in val_loader:
+        for images, labels in val_loader:
             images = images.to(target_device)
             outputs = model(images)
             preds = torch.argmax(outputs, dim=1).cpu().numpy()
             all_val_preds.extend(preds)
+            all_val_targets.extend(labels.cpu().numpy())
 
-    metrics = compute_metrics(y_val_idx, all_val_preds)
+    metrics = compute_metrics(all_val_targets, all_val_preds)
     log_result(model_name, config_desc, metrics, runtime_s)
 
     if save_plots:
@@ -304,6 +335,20 @@ if __name__ == "__main__":
     X_train, y_train = dummy_batch(batch_size=64, modality="deep")
     X_val, y_val = dummy_batch(batch_size=32, modality="deep")
 
+    # Wrap synthetic data in DataLoaders to model Module A streaming contract
+    y_train_idx = encode_labels(y_train)
+    y_val_idx = encode_labels(y_val)
+    train_loader = DataLoader(
+        TensorDataset(torch.from_numpy(X_train).float(), torch.from_numpy(y_train_idx).long()),
+        batch_size=16,
+        shuffle=True
+    )
+    val_loader = DataLoader(
+        TensorDataset(torch.from_numpy(X_val).float(), torch.from_numpy(y_val_idx).long()),
+        batch_size=16,
+        shuffle=False
+    )
+
     # 2. Module C owner creates their chosen model instance
     # Replace _build_pipeline_probe with build_model once custom architecture is chosen
     model = _build_pipeline_probe()
@@ -314,10 +359,7 @@ if __name__ == "__main__":
         model=model,
         model_name="PipelineProbe",
         config_desc="pipeline_sanity_check",
-        X_train=X_train,
-        y_train=y_train,
-        X_val=X_val,
-        y_val=y_val,
-        epochs=2,
-        batch_size=16
+        train_loader=train_loader,
+        val_loader=val_loader,
+        epochs=2
     )

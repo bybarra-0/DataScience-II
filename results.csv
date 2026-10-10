@@ -13,3 +13,6 @@ KNN,B,default,0.1163,0.12,0.1063,0.0
 SVM,B,default,0.0918,0.08,0.0714,0.01
 RandomForest,B,default,0.1469,0.12,0.1166,0.18
 RandomForest_Tuned,B,"tuned_{'randomforestclassifier__max_depth': 5, 'randomforestclassifier__n_estimators': 100}",0.1395,0.14,0.1318,3.61
+PipelineProbe,C,pipeline_sanity_check,0.1429,0.125,0.0317,0.07
+Pretrained_Stage1_Probe,C,frozen_backbone_head_dense128,0.1429,0.1875,0.0451,2.14
+Pretrained_Stage2_Probe,C,fine_tuned_top_stages_lr1e-5,0.1429,0.1875,0.0451,1.57

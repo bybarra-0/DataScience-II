@@ -13,6 +13,8 @@ data/images/
 data/*.zip
 data/*.tar.gz
 data/*.tab
+data/*.npz
+*.npz
 
 # Trained model weights and checkpoints (binary files)
 models/

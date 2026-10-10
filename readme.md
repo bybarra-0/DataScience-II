@@ -60,12 +60,21 @@ The alphabetical class order prevents axis misalignment in confusion matrices an
 ### `data.py`
 
 ```python
-load_metadata() -> DataFrame          # one row per image, from HAM10000_metadata.csv
-get_split(split=None) -> DataFrame    # "train" | "val" | "test", or full manifest
-generate_split()                      # one-time generation script for splits/splits.csv
+load_metadata() -> DataFrame              # one row per image, from HAM10000_metadata.csv
+get_split(split=None) -> DataFrame        # "train" | "val" | "test", or full manifest
+generate_split()                          # one-time generation script for splits/splits.csv
+verify_images(auto_extract=True) -> bool  # validates all 10,015 files on disk
+get_class_counts(split="train") -> dict   # class counts in canonical CLASS_NAMES order
+get_class_weights(as_tensor=False)        # balanced inverse-frequency weights from train split
 ```
 
-Returns index manifests with columns: `image_id, lesion_id, dx, dx_type, age, sex, localization, filepath, split`. Arrays are not materialized at this stage to avoid loading all images into memory simultaneously.
+Returns index manifests with columns: `image_id, lesion_id, dx, dx_type, age, sex, localization, dataset, split`. File paths to images are resolved on the fly via `DATA_ROOT / "images" / f"{image_id}.jpg"`. Arrays are not materialized at this stage to avoid loading all images into memory simultaneously.
+
+**Data ingestion and setup.** Raw images from Harvard Dataverse are distributed across two parts: `HAM10000_images_part_1.zip` and `HAM10000_images_part_2.zip`. Place both zip archives in `data/` or extract all contents into `data/images/` to yield a merged folder containing all 10,015 JPG files.
+
+**Integrity verification.** `verify_images()` validates that all 10,015 images exist and are non-empty (>0 bytes). If `data/images/` is empty and zip files exist in `data/`, it automatically extracts and merges them into `data/images/`. Run `python data.py --verify` from the command line before training to verify setup.
+
+**Class distribution and balanced weights.** `get_class_counts(split_name="train")` returns sample counts per class in canonical alphabetical order. `get_class_weights(as_tensor=False)` computes inverse-frequency weights strictly from the training split via w_c = N_train / (K * N_c). Setting `as_tensor=True` returns a `torch.float32` tensor directly consumable by Module C loss functions.
 
 **Split policy.** HAM10000 publishes no official split. The 10,015 images cover 7,470 unique lesions, meaning roughly 2,545 images represent additional views of existing lesions. Grouping on `lesion_id` is mandatory to prevent identical lesions from appearing across training and testing sets. The split logic deduplicates by `lesion_id`, stratifies by `dx` at the lesion level (70% train, 15% validation, 15% test), maps back to all corresponding images, and asserts zero lesion overlap across splits.
 
@@ -95,7 +104,7 @@ Every model run logs one row containing `model_name, module, config, metrics, ru
 | Shared Infrastructure | `pandas` | Metadata loading, manifest indexing |
 | Shared Infrastructure / B | `scikit-learn` | Stratified splitting, metrics, baseline models |
 | Shared Infrastructure / B | `scipy` | Scientific computing support for scikit-learn |
-| Module A (Preprocessing) | `Pillow` | Image loading and resizing |
+| Module A (Preprocessing) | `Pillow`, `scikit-learn`, `torchvision` | Image loading, resizing, PCA feature extraction, dataset transforms |
 | Module B / C (Reporting) | `matplotlib` | Loss curves and evaluation plots |
 | Module B / C (Reporting) | `seaborn` | Confusion matrix heatmaps |
 | Module C (Deep Learning) | `torch`, `torchvision` | CNN construction, EfficientNetB0 transfer learning |
@@ -110,14 +119,59 @@ Every model run logs one row containing `model_name, module, config, metrics, ru
 
 ### Module A: Preprocessing and data loading
 
-- Dataset acquisition, cleaning, and any parsing of annotation files
-- Conversion to a fixed-shape model input (images: resize and normalize. audio: segment, length-normalize, convert to spectrogram or extract features. tabular: encode and scale)
-- Augmentation appropriate to the modality
-- Class balance handling and documentation of what was done
-- Sample inspection, at least one figure showing what the data looks like
-- Agrees with Module B on the feature representation classical models will consume, since it is usually not the same tensor Module C takes
-
-Module A implements `preprocess.transform()`. Modules B and C build against the interface stub using dummy data initially, then swap in real data when A finishes. The stub itself, meaning the frozen signatures plus a `dummy_batch()` that returns correctly shaped random tensors and labels, ships with the shared infrastructure block and lands before Module A is implemented, so B and C are never blocked on preprocessing to reach G2.
+- Dataset acquisition, cleaning, and metadata parsing
+  - Unpack archives `HAM10000_images_part_1.zip` and `HAM10000_images_part_2.zip` into `DATA_ROOT / "images"`.
+  - Validate that all 10,015 images exist and are readable using `data.verify_images()`.
+  - Impute 57 missing values in the age column using the median value computed strictly from the training split.
+  - Image files are mapped dynamically from image_id to DATA_ROOT / "images" / f"{image_id}.jpg".
+  - Metadata cleaning vs feature scope:
+    - Demographic metadata (age, sex, localization) is cleaned and verified in manifests strictly for exploratory data analysis (EDA), demographic distribution plots, and final report documentation.
+    - Model feature inputs for Modules B and C are strictly image-derived (64 PCA components for classical models, RGB tensors for deep models) to maintain an unconfounded, vision-only benchmark.
+- Classical feature representation for Module B
+  - `preprocess.get_classical_data(split_name: str = "train", force_recompute: bool = False)` returns `(X, y)` where `X` is an `(N, 64)` float32 array and `y` is an `(N,)` string label array matching `CLASS_NAMES`.
+  - Images are downsampled to 64x64 grayscale. When `split_name == "train"`, a 64-component PCA model is fitted strictly on the training set and saved to `models/baselines/pca_64.joblib`. Validation and test sets are projected using this saved PCA transformer to prevent data leakage.
+  - On-disk feature caching: Extracted arrays are automatically serialized to `data/classical_features_{split_name}.npz` via `np.savez_compressed(..., X=X, y=y)`. Subsequent calls load cached `.npz` arrays instantly. Pass `force_recompute=True` to invalidate the cache and re-extract from raw images.
+- Deep model data pipeline for Module C
+  - PyTorch `HAM10000Dataset` and `get_deep_loader(split_name, batch_size=32, shuffle=True)` stream image batches directly from disk on the fly.
+  - Prevents loading all 10,015 images into RAM simultaneously, ensuring stable execution under memory constraints.
+  - `get_deep_loader` returns a PyTorch `DataLoader` yielding batches of `(images, labels)`:
+    - `images`: `torch.float32` tensor of shape `(batch_size, 3, 224, 224)` normalized with ImageNet mean and standard deviation.
+    - `labels`: `torch.long` tensor of integer indices `0` to `6` mapped via `LABEL_TO_IDX`.
+    - Integrates directly into `model.train_and_evaluate(model, model_name, config_desc, train_loader, val_loader)`.
+- Label format contract and technical rationale
+  - Classical baselines (`get_classical_data` -> string labels):
+    - Scikit-learn native support: Classifiers in `baselines.py` (`LogisticRegression`, `RandomForestClassifier`, `SVC`, `KNeighborsClassifier`) handle string class targets directly.
+    - Metrics alignment: `compute_metrics` in `metrics.py` evaluates performance using `labels=CLASS_NAMES`. Keeping labels as strings prevents confusion matrix axis misalignment.
+    - Pipeline consistency: The synthetic generator `dummy_batch` for classical models returns string labels sampled from `CLASS_NAMES`. Maintaining string returns preserves interface consistency across baseline scripts.
+  - Deep learning pipeline (`HAM10000Dataset` / `get_deep_loader` -> integer indices):
+    - PyTorch loss requirement: `nn.CrossEntropyLoss` expects integer target tensors (`torch.long`) with values in range `[0, NUM_CLASSES - 1]`. Passing string labels produces a runtime error during training.
+    - Batch collation: PyTorch default batch collation (`DataLoader`) bundles string outputs into a Python list of strings (`list[str]`), which cannot be transferred to GPU accelerator memory or evaluated by loss criteria.
+- Augmentation strategy and leakage controls
+  - Augmentation is restricted strictly to the training split (split == "train"). Validation and test sets use deterministic resizing and normalization only.
+  - Applied transforms preserve dermatoscopic validity: random horizontal flip, random vertical flip, random 90-degree rotations, and slight affine scaling.
+  - Excessive color jittering is omitted to preserve diagnostic color variations.
+  - Clinical artifacts (hairs, gel bubbles, peripheral vignetting) documented in HAM10000 are preserved to evaluate realistic diagnostic robustness rather than introducing synthetic masking distortions.
+- Class balance handling and loss weights
+  - Single programmatic source: `data.get_class_counts(split_name="train")` and `data.get_class_weights(as_tensor=True)` compute sample frequencies and inverse-frequency balanced weights strictly on the training split to prevent leakage.
+  - Module A deliverable: Uses `get_class_counts()` to generate `figures/class_distribution.png` documenting sample counts across classes and splits.
+  - Module B consumption: Classical estimators apply `class_weight="balanced"` to automatically weight training samples.
+  - Module C consumption: Passes `data.get_class_weights(as_tensor=True)` into PyTorch `nn.CrossEntropyLoss(weight=weights)`.
+- Experimental benchmark for Module A
+  - Compare 3 image resize strategies to evaluate geometric impact on classification:
+    1. Direct resize: Stretch 600x450 RGB to 224x224 (distorts aspect ratio).
+    2. Aspect-ratio preserving padding: Scale maintaining 4:3 aspect ratio, with black letterbox borders to 224x224.
+    3. Center crop: Crop 450x450 center square from 600x450, downsample to 224x224.
+  - Standardized feature extraction per strategy:
+    - Downsample resized 224x224 images to 64x64 grayscale.
+    - Fit a separate 64-component PCA model strictly on the training split for each strategy.
+    - Project the validation split to produce an (N_val, 64) feature matrix.
+  - Fixed baseline evaluation:
+    - Train an identical RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=SEED) on each feature set.
+    - Evaluate on the validation split with compute_metrics.
+    - Log 3 comparison rows to results.csv under module "A" with fit runtimes and validation metrics (configs: rf_resize_direct, rf_resize_letterbox, rf_resize_centercrop).
+- Visual deliverables
+  - Save `figures/sample_inspection.png` displaying a grid of representative images for all 7 lesion classes.
+  - Save `figures/class_distribution.png` showing sample counts across classes and splits.
 
 ### Module B: Classical baselines
 
@@ -232,9 +286,9 @@ From the syllabus. Project is 30 percent of the final grade.
 
 - **Module A:** Preprocessing
 - **Coding:** 
-  - `preprocess.py`: cleaning, conversion to model input, normalization, augmentation. Serves as the loader both model modules (B and C) import
-- **Experimental:** Compare 2 to 3 preprocessing settings on one fixed model, produce the sample-inspection figure, document class distribution
-- **Writing:** Dataset description, Preprocessing methods, data figure
+  - `preprocess.py`: metadata cleaning and age imputation, 64-component PCA feature extraction for Module B, PyTorch HAM10000Dataset and DataLoader for Module C, train-only augmentations.
+- **Experimental:** Compare 3 resize strategies (direct resize vs aspect-ratio padding vs center crop) on a fixed Random Forest baseline, generate figures/sample_inspection.png and figures/class_distribution.png.
+- **Writing:** Dataset description, Preprocessing methods, resize benchmark analysis, sample inspection figures.
 
 
 

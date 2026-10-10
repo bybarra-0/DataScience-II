@@ -7,6 +7,6 @@
 - `akiec`: Combines actinic keratosis (solar keratosis) and Bowen disease (intraepithelial carcinoma), which are superficial squamous cell carcinoma variants.
 - `nv`: Covers all variants of melanocytic nevi, confirmed benign by either pathology, 1.5-year digital follow-up without change, or two-expert consensus.
 
-3. Natural Clinical Noise: authors intentionally did not remove terminal hairs, air/gel bubbles, or peripheral sun damage (solar lentigines and dilated vessels) so the dataset reflects actual clinical workflows. Preprocessing pipelines should account for these artifacts.
+3. Natural Clinical Noise: The authors intentionally did not remove terminal hairs, air/gel bubbles, or peripheral sun damage (solar lentigines and dilated vessels) so the dataset reflects actual clinical workflows. The project pipeline accounts for these artifacts by leaving them intact and relying on rotational and affine data augmentations for model robustness, avoiding algorithmic inpainting (such as DullRazor) that risks distorting fine lesion borders.
 
 4. Baseline Deep Architectures: authors used an ImageNet-pretrained InceptionV3 architecture to classify and filter dermatoscopic images during dataset creation. This supports Module C's proposal to use transfer learning with standard ImageNet backbones (InceptionV3, ResNet, EfficientNet).
