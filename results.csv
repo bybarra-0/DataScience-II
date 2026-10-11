@@ -1,18 +1,4 @@
 model_name,module,config,balanced_accuracy,accuracy,macro_f1,runtime_s
-PipelineProbe,C,pipeline_sanity_check,0.1429,0.125,0.0317,0.08
-Pretrained_Stage1_Probe,C,frozen_backbone_head_dense128,0.1429,0.1875,0.0451,2.22
-Pretrained_Stage2_Probe,C,fine_tuned_top_stages_lr1e-5,0.1429,0.1875,0.0451,1.67
-DecisionTree,B,default,0.1142,0.12,0.1097,0.01
-LogisticRegression,B,default,0.1118,0.12,0.1054,0.02
-DecisionTree_Tuned,B,"tuned_{'decisiontreeclassifier__max_depth': 10, 'decisiontreeclassifier__min_samples_split': 5}",0.1161,0.1,0.0954,2.94
-PipelineProbe,C,pipeline_sanity_check,0.1429,0.125,0.0317,0.03
-Pretrained_Stage1_Probe,C,frozen_backbone_head_dense128,0.1429,0.1875,0.0451,2.33
-Pretrained_Stage2_Probe,C,fine_tuned_top_stages_lr1e-5,0.1429,0.1875,0.0451,1.75
-LogisticRegression,B,default,0.0749,0.08,0.0631,0.02
-KNN,B,default,0.1163,0.12,0.1063,0.0
-SVM,B,default,0.0918,0.08,0.0714,0.01
-RandomForest,B,default,0.1469,0.12,0.1166,0.18
-RandomForest_Tuned,B,"tuned_{'randomforestclassifier__max_depth': 5, 'randomforestclassifier__n_estimators': 100}",0.1395,0.14,0.1318,3.61
-PipelineProbe,C,pipeline_sanity_check,0.1429,0.125,0.0317,0.07
-Pretrained_Stage1_Probe,C,frozen_backbone_head_dense128,0.1429,0.1875,0.0451,2.14
-Pretrained_Stage2_Probe,C,fine_tuned_top_stages_lr1e-5,0.1429,0.1875,0.0451,1.57
+RandomForest,A,rf_resize_direct,0.274,0.6614,0.2752,1.88
+RandomForest,A,rf_resize_letterbox,0.2519,0.6418,0.2498,1.95
+RandomForest,A,rf_resize_centercrop,0.2704,0.6496,0.2777,1.98
