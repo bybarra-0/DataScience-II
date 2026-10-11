@@ -92,6 +92,11 @@ Calculates balanced accuracy, accuracy, macro precision, macro recall, macro F1,
 
 **Headline metric: balanced multiclass accuracy** (mean per-class sensitivity / macro recall), selected to handle the 58 to 1 class imbalance. Macro F1 and per-class recall accompany it in every summary. Raw accuracy is tracked as secondary context.
 
+**Technical success criteria (from project proposal):**
+- Baseline outperformance: All models must exceed naive majority-class prediction (67 percent raw accuracy). Deep models must demonstrate clear gains over classical feature baselines.
+- Imbalance-aware target: Balanced multiclass accuracy must exceed 70 percent on the held-out test split.
+- Malignant class sensitivity: Per-class recall for melanoma (mel) and basal cell carcinoma (bcc) must exceed 75 percent to minimize high-risk clinical false negatives.
+
 ### `results.csv`
 
 Every model run logs one row containing `model_name, module, config, metrics, runtime_s`. This provides a direct source for the comparative tables and charts in the final report.
@@ -128,6 +133,7 @@ Every model run logs one row containing `model_name, module, config, metrics, ru
     - Demographic metadata (age, sex, localization) is cleaned and verified in manifests strictly for exploratory data analysis (EDA), demographic distribution plots, and final report documentation.
     - Model feature inputs for Modules B and C are strictly image-derived (64 PCA components for classical models, RGB tensors for deep models) to maintain an unconfounded, vision-only benchmark.
 - Classical feature representation for Module B
+  - Alignment with proposal: Fulfills the proposal requirement for classical feature baselines. Flattening raw 224x224 RGB images produces 150,528 dimensions per sample, which is computationally intractable for classical algorithms (such as SVM and KNN) and memory-prohibitive during grid search cross-validation. The 64-component PCA projection reduces dimensionality while retaining dominant variance.
   - `preprocess.get_classical_data(split_name: str = "train", force_recompute: bool = False)` returns `(X, y)` where `X` is an `(N, 64)` float32 array and `y` is an `(N,)` string label array matching `CLASS_NAMES`.
   - Images are downsampled to 64x64 grayscale. When `split_name == "train"`, a 64-component PCA model is fitted strictly on the training set and saved to `models/baselines/pca_64.joblib`. Validation and test sets are projected using this saved PCA transformer to prevent data leakage.
   - On-disk feature caching: Extracted arrays are automatically serialized to `data/classical_features_{split_name}.npz` via `np.savez_compressed(..., X=X, y=y)`. Subsequent calls load cached `.npz` arrays instantly. Pass `force_recompute=True` to invalidate the cache and re-extract from raw images.
@@ -198,16 +204,6 @@ Per the proposal requirements, "You are expected to share the workload evenly, a
 
 Therefore, TA expects each of us to have parts in writing, parts in coding.
 
-## Proposal writing map
-
-| Proposal section     | Drafted by                                                   |
-| :------------------- | ------------------------------------------------------------ |
-| 1. Introduction      | Erick                                                        |
-| 2. Motivation        | each write a sentence or paragraph of their own motivation. Edward merges |
-| 3.  Evaluation       | Edward                                                       |
-| 4. Resources         | each write the resources needed for their own module. Edward merges |
-| 5. Team contribution | written together                                             |
-
 ## Final Report writing map	
 
 | Final Report section | Drafted by |
@@ -242,7 +238,7 @@ A gate is passed by showing running code.
 
 ## 6. Rules for consistency
 
-- One repo, one branch per person, no code emailed around. `Project Overview.md` lives in the repo, since it is the document that defines everyone's interfaces.
+- One repo, one branch per person, no code emailed around. `readme.md` lives in the repo, since it is the document that defines everyone's interfaces.
 - One frozen split, committed as `splits/splits.csv` and grouped on `lesion_id`, and one metrics function, both written before any model is trained.
 - Every result reported with the same metric set, logged to results.csv.
 - Model selection happens on validation. The test split is opened once, at G3.
@@ -274,7 +270,7 @@ From the syllabus. Project is 30 percent of the final grade.
 
 - **Module:** Shared Infrastructure
 
-- **Coding:** `config.py`, `data.py`, `metrics.py`, `results.py`, `verify_split.py`, the `preprocess.py` interface stub, `requirements.txt`
+- **Coding:** `config.py`, `data.py` (ingestion, split generation, verification routines), `metrics.py`, the `preprocess.py` interface stub, `requirements.txt`, `results.csv` schema
 
 - **Experimental:** Split balance verification, leakage check, seed stability, pipeline sanity run
 
