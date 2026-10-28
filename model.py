@@ -9,11 +9,10 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from config import SEED, NUM_CLASSES, INPUT_SHAPE, RESULTS_PATH, PROJECT_ROOT, seed_everything
+from config import SEED, NUM_CLASSES, INPUT_SHAPE, RESULTS_PATH, PROJECT_ROOT, CLASS_NAMES, seed_everything
 from data import get_class_weights
 from preprocess import get_deep_loader
 from metrics import compute_metrics
-
 
 def log_deep_result(model_name: str, config_desc: str, metrics: dict, runtime_s: float) -> dict:
     # Maintain identical reporting schema across modules in central tracking file
@@ -53,8 +52,12 @@ class CustomCNN(nn.Module):
         )
         self.classifier = nn.Sequential(
             nn.Flatten(), #flattens the input tensor to a 1D vector
-            nn.Dropout(0.25), #prevents overfitting by randomly setting a fraction of the input units to 0 during training
-            nn.Linear(256, num_classes) #linear layer that maps the flattened feature vector to the number of classe
+            nn.Dropout(0.3), #prevents overfitting by randomly setting a fraction of the input units to 0 during training
+
+            nn.Linear(256, 128), #linear layer that maps the flattened feature vector to the number of classe
+            nn.ReLU(),
+            nn.Dropout(.3),
+            nn.Linear(128,num_classes)
         )
         #the classifier takes the output of the feature extractor and flattens it, applies dropout for regularization, 
         #and then passes it through a linear layer to produce the final class logits
@@ -67,7 +70,6 @@ class CustomCNN(nn.Module):
         x = self.features(x) 
         x = self.classifier(x)
         return x # calls functions
-
 
 def train_one_epoch(model: nn.Module, loader: DataLoader, criterion: nn.Module, optimizer: optim.Optimizer, device: torch.device) -> float:
     # TODO: Iterate over mini-batches, execute forward pass, backpropagation, and optimizer step
@@ -93,8 +95,7 @@ def train_one_epoch(model: nn.Module, loader: DataLoader, criterion: nn.Module, 
     epoch_loss = Closs / totalsample 
     return epoch_loss #sends out the loss. 
 
-
-def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device: torch.device) -> tuple[float, dict]:
+def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device: torch.device, return_preds: bool = False):
     model.eval() #testing 
 
     Closs = 0.0
@@ -130,14 +131,14 @@ def evaluate(model: nn.Module, loader: DataLoader, criterion: nn.Module, device:
             trueL[start:end] = targets_in
 
             totalchecked = end #for nect batch
-
     #perfomance can be passed to metrics.py for us to reflect to 
     validation_loss = Closs / totalchecked
     metrics = compute_metrics(trueL[:totalchecked], preds[:totalchecked]) #iteration
     # Convert raw logits to integer class predictions via torch.argmax(logits, dim=1).cpu().numpy()
     # Evaluate performance by passing integer targets and predictions to compute_metrics(y_true, y_pred)
-    return validation_loss, metrics
-
+    if return_preds:
+        return validation_loss, metrics, trueL[:totalchecked], preds[:totalchecked]
+    return validation_loss, metrics 
 
 def plot_training_curves(train_losses: list, val_losses: list, val_accs: list, output_path: Path = None):
     #send over to figure
@@ -168,7 +169,6 @@ def plot_training_curves(train_losses: list, val_losses: list, val_accs: list, o
     plt.close() 
     print("saved") #debug
 
-
 def train_and_evaluate(
     model: nn.Module,
     model_name: str,
@@ -187,15 +187,13 @@ def train_and_evaluate(
 
     weights = get_class_weights(as_tensor=True).to(device) #grab weights
     critc = nn.CrossEntropyLoss(weight= weights) #computing loss
-    optmize = optim.Adam(model.parameters(), lr = lr) #defined from above
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optmize, mode ='max', factor=.3, patience=3) # factor decides lr, and patience is #of iteration with no leanring
-    #setting the needed values
+    optmize = optim.AdamW(model.parameters(), lr = lr, weight_decay = 1e-2)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optmize, T_max = epochs)
 
     #checkpoint to be saved
     checkpoint = PROJECT_ROOT / "models" / "deep"
     checkpoint.mkdir(parents=True, exist_ok= True) # for collab
     checkpointPath = checkpoint / (model_name + "_" + config_desc + "_best.pt") #pythoch extension to store weights; we be used for the figure picture
-
 
     #tracking the variables/changes
     trainingLoss = []
@@ -203,7 +201,7 @@ def train_and_evaluate(
     validationaccuracy = []
     best_accuracy_balanced = -1
     best_cycle = 0
-    wasted = 7
+    wasted = 15
     noimprove = 0
     start_time = time.time() #loggining in runtime
 
@@ -212,7 +210,7 @@ def train_and_evaluate(
         trainLoss = train_one_epoch(model, train_loader, critc, optmize, device)
         validloss, valmetric = evaluate(model, val_loader, critc, device)
         avgAccuracy = valmetric["balanced_accuracy"]
-        scheduler.step(avgAccuracy)
+        scheduler.step()
         #early stop and to append
 
         trainingLoss.append(trainLoss)
@@ -221,6 +219,7 @@ def train_and_evaluate(
 
         #for us to see
         print("Epoch", epoch +1, "of", epochs, "training loss - ", round(trainLoss, 3), " validation loss - ", round(validloss,3), " validation accuracy balanced - ", round(avgAccuracy,3))
+        print("learning rate now:", optmize.param_groups[0]["lr"])
 
         if avgAccuracy > best_accuracy_balanced: #saving the best cycles/ weights 
             best_accuracy_balanced = avgAccuracy
@@ -241,27 +240,68 @@ def train_and_evaluate(
     } #to send out to data. model name, configure, best testing accuracy, best cycle, turns path to string, and tracks run time (gpu)
 
 
-
 #add new def to read from .pt to have the best weights and load it to update for csv.
+def evaluation_checkpoint(model: nn.Module, model_name: str, config_desc: str, loader: DataLoader, split_name: str) -> dict:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
+    checkpointPath = PROJECT_ROOT / "models" / "deep" / (model_name + "_" + config_desc + "_best.pt")
+    savedweights = torch.load(checkpointPath, map_location= device)
+    model.load_state_dict(savedweights)
+
+    weights = get_class_weights(as_tensor=True).to(device)
+    critc = nn.CrossEntropyLoss(weight= weights)
+
+    start_time = time.time()
+    loss, metrics, y_true, y_pred = evaluate(model, loader, critc, device, return_preds= True)
+    runT = time.time() - start_time
+
+    print(split_name, "loss", round(loss,4), "balanced accuracy", round(metrics["balanced_accuracy"],4))
+
+    for c in range(NUM_CLASSES):
+        in_class = y_true == c
+        caught = y_pred[in_class] == c
+        print(" ", CLASS_NAMES[c], "recall", round(caught.mean(),3), "out_of", in_class.sum())
+
+    savepath = PROJECT_ROOT / "figures" / (model_name + "_" + config_desc + "_" + split_name + "_preds.npz") # to make matrix later
+    np.savez(savepath, y_true = y_true, y_pred = y_pred)
+
+    if split_name == "test":
+        log_deep_result(model_name, config_desc + "_test", metrics, runT)
+    return metrics
+
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Module C: Deep Learning Model Training")
     parser.add_argument("--batch-size", type=int, default=32, help="Mini-batch size")
-    parser.add_argument("--epochs", type=int, default=15, help="Number of training epochs")
+    parser.add_argument("--epochs", type=int, default=35, help="Number of training epochs")
     parser.add_argument("--lr", type=float, default=1e-3, help="Initial learning rate")
+
+#evalutate best
+    parser.add_argument("--eval-split", type = str, default= None, choices= ["val", "test"])
+
     args = parser.parse_args()
 
     seed_everything(SEED)
     print("Module C: Initializing PyTorch DataLoaders from Module A...")
     train_loader = get_deep_loader(split_name="train", batch_size=args.batch_size, shuffle=True)
     val_loader = get_deep_loader(split_name="val", batch_size=args.batch_size, shuffle=False)
+
+    config_desc = "adamw_lr" + str(args.lr) + "_BatchSize" + str(args.batch_size) + "_ep" + str(args.epochs) + "_cosine1cycle"
+    if args.eval_split is not None:
+        eval_loader = get_deep_loader(split_name=args.eval_split, batch_size= args.batch_size, shuffle= False )
+        evaluation_checkpoint(CustomCNN(), "Custom_CNN", config_desc, eval_loader, args.eval_split)
+        raise SystemExit
+
     print(f"DataLoaders ready: {len(train_loader)} train batches, {len(val_loader)} val batches")
 
     model = CustomCNN() #initalize
     summary = train_and_evaluate( 
         model= model,
         model_name= "Custom_CNN",
-        config_desc= "lr" + str(args.lr) + "_BatchSize" + str(args.batch_size),
+        config_desc= "adamw_lr" + str(args.lr) + "_BatchSize" + str(args.batch_size) + "_ep" + str(args.epochs) + "_cosine1cycle",
         train_loader= train_loader,
         val_loader= val_loader,
         epochs= args.epochs,
