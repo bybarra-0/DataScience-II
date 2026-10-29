@@ -2,3 +2,5 @@ model_name,module,config,balanced_accuracy,accuracy,macro_f1,runtime_s
 RandomForest,A,rf_resize_direct,0.274,0.6614,0.2752,1.88
 RandomForest,A,rf_resize_letterbox,0.2519,0.6418,0.2498,1.95
 RandomForest,A,rf_resize_centercrop,0.2704,0.6496,0.2777,1.98
+efficientnet_b0,C,backbone_unfrozed_lr0.0001_batchSize32_test,0.8023,0.777,0.6851,15.75
+Custom_CNN,C,adamw_lr0.001_BatchSize32_ep35_cosine1cycle_test,0.6162,0.6112,0.4599,14.13
