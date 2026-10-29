@@ -125,7 +125,7 @@ Detailed architectural decisions, label formatting rationale, and augmentation c
 
 ### Module B: Classical Baselines
 
-Status: In Progress
+Status: implemented - writing report
 
 Entry point: [baselines.py](file:///d:/F2026/DS2/Main%20Branch/baselines.py)
 
