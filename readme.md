@@ -76,9 +76,7 @@ python data.py --verify
 
 ### Module A: Preprocessing and Data Pipeline
 
-Status: Fully Implemented
-
-Module A provides leak-free data cleaning, visual deliverables, on-disk PCA feature caching for classical models, and a streaming PyTorch DataLoader pipeline for deep architectures.
+Provides leak-free data cleaning, visual deliverables, on-disk PCA feature caching for classical models, and a streaming PyTorch DataLoader pipeline for deep architectures.
 
 #### CLI Commands
 
@@ -125,8 +123,6 @@ Detailed architectural decisions, label formatting rationale, and augmentation c
 
 ### Module B: Classical Baselines
 
-Status: In Progress
-
 Entry point: [baselines.py](file:///d:/F2026/DS2/Main%20Branch/baselines.py)
 
 Models evaluated:
@@ -142,8 +138,6 @@ Detailed baseline modeling instructions and tuning protocols are documented in [
 ---
 
 ### Module C: Deep Learning
-
-Status: In Progress
 
 Entry points: [model.py](file:///d:/F2026/DS2/Main%20Branch/model.py) and [pretrained.py](file:///d:/F2026/DS2/Main%20Branch/pretrained.py)
 
