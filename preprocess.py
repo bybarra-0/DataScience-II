@@ -167,6 +167,9 @@ import sklearn.decomposition as decomp
 
 def get_classical_data(split_name: str = "train", force_recompute: bool = False):
     cache_path = data_root / f"classical_features_{split_name}.npz"
+    models_dir = project_root / "models" / "baselines"
+    pca_path = models_dir / "pca_64.joblib"
+
     # Only use cache if the serialized model also exists when checking train
     if cache_path.exists() and not force_recompute:
         if split_name != "train" or pca_path.exists():
@@ -188,9 +191,9 @@ def get_classical_data(split_name: str = "train", force_recompute: bool = False)
     x_raw = np.array(features_list, dtype=np.float32)
     y = np.array(labels_list, dtype=str)
 
-    models_dir = project_root / "models" / "baselines"
+
     models_dir.mkdir(parents=True, exist_ok=True)
-    pca_path = models_dir / "pca_64.joblib"
+
 
     pca_cls = getattr(decomp, "pca".upper())
 

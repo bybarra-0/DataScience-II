@@ -3,4 +3,17 @@ RandomForest,A,rf_resize_direct,0.274,0.6614,0.2752,1.88
 RandomForest,A,rf_resize_letterbox,0.2519,0.6418,0.2498,1.95
 RandomForest,A,rf_resize_centercrop,0.2704,0.6496,0.2777,1.98
 efficientnet_b0,C,backbone_unfrozed_lr0.0001_batchSize32_test,0.8023,0.777,0.6851,15.75
+Custom_CNN,C,default_adam_lr0.001_BatchSize32_ep15,0.5222,,,1377.18
 Custom_CNN,C,adamw_lr0.001_BatchSize32_ep35_cosine1cycle_test,0.6162,0.6112,0.4599,14.13
+Logistic Regression,B,default,0.28,0.3576,0.2212,0.04
+KNN,B,default,0.1796,0.6437,0.1666,0.01
+SVM,B,default,0.3169,0.5056,0.2737,2.82
+Random Forest,B,default,0.2735,0.6601,0.2809,1.71
+KNN,B,"tuned_{'classifier__n_neighbors': 3, 'classifier__weights': 'distance'}",0.1954,0.6339,0.1923,0.83
+SVM,B,"tuned_{'classifier__C': 1.0, 'classifier__kernel': 'rbf'}",0.3169,0.5056,0.2737,58.37
+Logistic Regression,B,"tuned_{'classifier__C': 0.01, 'classifier__penalty': 'l1', 'classifier__solver': 'saga'}",0.3078,0.298,0.2134,37.82
+Random Forest,B,"tuned_{'max_depth': 10, 'min_samples_split': 5, 'n_estimators': 200}",0.3505,0.5809,0.3179,20.98
+Logistic Regression,B,"test_tuned_{'classifier__C': 0.01, 'classifier__penalty': 'l1', 'classifier__solver': 'saga'}",0.3108,0.3129,0.2149,37.74
+KNN,B,"test_tuned_{'classifier__n_neighbors': 3, 'classifier__weights': 'distance'}",0.1819,0.6585,0.1829,0.78
+SVM,B,"test_tuned_{'classifier__C': 1.0, 'classifier__kernel': 'rbf'}",0.3244,0.5087,0.275,66.97
+Random Forest,B,"test_tuned_{'max_depth': 10, 'min_samples_split': 5, 'n_estimators': 200}",0.2952,0.5666,0.2685,21.84
