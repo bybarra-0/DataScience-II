@@ -131,6 +131,22 @@ Models evaluated:
 - Support Vector Machines (SVM)
 - Random Forest
 
+#### CLI Commands
+
+```bash
+# Execute untuned baseline evaluation for all 4 models on validation split
+python baselines.py --model all
+
+# Execute 5-fold cross-validation grid search and export canonical heatmaps
+python baselines.py --model all --tune
+
+# Train and tune a specific model architecture (lr, knn, svm, or rf)
+python baselines.py --model rf --tune
+
+# Evaluate selected tuned models on the test split
+python baselines.py --model all --tune --eval-test
+```
+
 All estimators consume features via [`get_classical_data`](file:///d:/F2026/DS2/Main%20Branch/preprocess.py#L168) and log runs to [results.csv](file:///d:/F2026/DS2/Main%20Branch/results.csv) using [`compute_metrics`](file:///d:/F2026/DS2/Main%20Branch/metrics.py#L10).
 
 Detailed baseline modeling instructions and tuning protocols are documented in [docs/Module B development roadmap.md](file:///d:/F2026/DS2/Main%20Branch/docs/Module%20B%20development%20roadmap.md).
@@ -155,11 +171,30 @@ Detailed neural network architecture guidelines, training loops, and transfer le
 
 Experimental results logged in [results.csv](file:///d:/F2026/DS2/Main%20Branch/results.csv):
 
+### Validation Split Benchmarks
+
 | Model | Module | Config | Balanced Accuracy | Accuracy | Macro F1 | Runtime (s) |
 |---|---|---|---|---|---|---|
 | Random Forest | A | rf_resize_direct | 0.2740 | 0.6614 | 0.2752 | 1.88 |
 | Random Forest | A | rf_resize_letterbox | 0.2519 | 0.6418 | 0.2498 | 1.95 |
 | Random Forest | A | rf_resize_centercrop | 0.2704 | 0.6496 | 0.2777 | 1.98 |
+| Logistic Regression | B | default | 0.2800 | 0.3576 | 0.2212 | 0.04 |
+| KNN | B | default | 0.1796 | 0.6437 | 0.1666 | 0.01 |
+| SVM | B | default | 0.3169 | 0.5056 | 0.2737 | 2.82 |
+| Random Forest | B | default | 0.2735 | 0.6601 | 0.2809 | 1.71 |
+| Logistic Regression | B | tuned_{'classifier__C': 0.01, 'classifier__penalty': 'l1', 'classifier__solver': 'saga'} | 0.3078 | 0.2980 | 0.2134 | 37.82 |
+| KNN | B | tuned_{'classifier__n_neighbors': 3, 'classifier__weights': 'distance'} | 0.1954 | 0.6339 | 0.1923 | 0.83 |
+| SVM | B | tuned_{'classifier__C': 1.0, 'classifier__kernel': 'rbf'} | 0.3169 | 0.5056 | 0.2737 | 58.37 |
+| Random Forest | B | tuned_{'max_depth': 10, 'min_samples_split': 5, 'n_estimators': 200} | 0.3505 | 0.5809 | 0.3179 | 20.98 |
+
+### Test Benchmarks
+
+| Model | Module | Config | Balanced Accuracy | Accuracy | Macro F1 | Runtime (s) |
+|---|---|---|---|---|---|---|
+| Logistic Regression | B | test_tuned_{'classifier__C': 0.01, 'classifier__penalty': 'l1', 'classifier__solver': 'saga'} | 0.3108 | 0.3129 | 0.2149 | 37.74 |
+| KNN | B | test_tuned_{'classifier__n_neighbors': 3, 'classifier__weights': 'distance'} | 0.1819 | 0.6585 | 0.1829 | 0.78 |
+| SVM | B | test_tuned_{'classifier__C': 1.0, 'classifier__kernel': 'rbf'} | 0.3244 | 0.5087 | 0.2750 | 66.97 |
+| Random Forest | B | test_tuned_{'max_depth': 10, 'min_samples_split': 5, 'n_estimators': 200} | 0.2952 | 0.5666 | 0.2685 | 21.84 |
 
 ---
 

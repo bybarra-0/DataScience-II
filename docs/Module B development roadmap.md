@@ -99,7 +99,7 @@ Use `X_dummy` and `y_dummy` to verify that scikit-learn pipelines run cleanly be
 
 ## 6. Deliverables Checklist
 
-- [ ] [baselines.py](file:///d:/F2026/DS2/Main%20Branch/baselines.py) fully implemented for all four estimators.
-- [ ] Populated rows in [results.csv](file:///d:/F2026/DS2/Main%20Branch/results.csv) comparing default vs tuned baselines.
-- [ ] Exported confusion matrix heatmaps in `figures/`.
+- [x] [baselines.py](file:///d:/F2026/DS2/Main%20Branch/baselines.py) fully implemented for all four estimators.
+- [x] Populated rows in [results.csv](file:///d:/F2026/DS2/Main%20Branch/results.csv) comparing default vs tuned baselines.
+- [x] Exported confusion matrix heatmaps in `figures/`.
 - [ ] Written baseline methodology and results discussion drafted for the final report.
