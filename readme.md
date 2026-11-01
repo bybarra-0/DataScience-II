@@ -159,9 +159,30 @@ Entry points: [model.py](file:///d:/F2026/DS2/Main%20Branch/model.py) and [pretr
 
 Architectures evaluated:
 - Custom Convolutional Neural Network
-- Transfer learning with pretrained EfficientNetB0
+- Transfer learning with pretrained EfficientNetB0 (feature extraction vs fine-tuning)
 
 Models consume streaming batches via [`get_deep_loader`](file:///d:/F2026/DS2/Main%20Branch/preprocess.py#L268) and apply class-weighted loss via [`get_class_weights(as_tensor=True)`](file:///d:/F2026/DS2/Main%20Branch/data.py).
+
+#### CLI Commands
+
+```bash
+# Train Custom CNN baseline from scratch (35 epochs)
+python model.py --epochs 35 --lr 0.001 --batch-size 32
+
+# Evaluate Custom CNN on validation or test split and export confusion matrices
+python model.py --eval-split val
+python model.py --eval-split test
+
+# Train EfficientNetB0 feature extraction (frozen backbone, 10 epochs)
+python pretrained.py --freeze-backbone --epochs 10
+
+# Train EfficientNetB0 full fine-tuning (unfrozen backbone, 10 epochs)
+python pretrained.py --epochs 10 --lr 0.0001
+
+# Evaluate EfficientNetB0 checkpoints on validation or test split
+python pretrained.py --freeze-backbone --eval-split test
+python pretrained.py --eval-split test
+```
 
 Detailed neural network architecture guidelines, training loops, and transfer learning instructions are documented in [docs/Module C development roadmap.md](file:///d:/F2026/DS2/Main%20Branch/docs/Module%20C%20development%20roadmap.md).
 
@@ -186,6 +207,10 @@ Experimental results logged in [results.csv](file:///d:/F2026/DS2/Main%20Branch/
 | KNN | B | tuned_{'classifier__n_neighbors': 3, 'classifier__weights': 'distance'} | 0.1954 | 0.6339 | 0.1923 | 0.83 |
 | SVM | B | tuned_{'classifier__C': 1.0, 'classifier__kernel': 'rbf'} | 0.3169 | 0.5056 | 0.2737 | 58.37 |
 | Random Forest | B | tuned_{'max_depth': 10, 'min_samples_split': 5, 'n_estimators': 200} | 0.3505 | 0.5809 | 0.3179 | 20.98 |
+| Custom CNN | C | default_adam_lr0.001_BatchSize32_ep15 | 0.5222 | - | - | 1377.18 |
+| Custom CNN | C | adamw_lr0.001_BatchSize32_ep35_cosine1cycle_val | 0.5981 | 0.6195 | 0.4830 | 17.32 |
+| EfficientNetB0 (frozen) | C | backbone_frozen_lr0.0001_batchSize32_val | 0.4928 | 0.5927 | 0.4093 | 895.40 |
+| EfficientNetB0 (unfrozen) | C | backbone_unfrozen_lr0.0001_batchSize32_val | 0.7712 | 0.7931 | 0.6913 | 21.03 |
 
 ### Test Benchmarks
 
@@ -195,6 +220,9 @@ Experimental results logged in [results.csv](file:///d:/F2026/DS2/Main%20Branch/
 | KNN | B | test_tuned_{'classifier__n_neighbors': 3, 'classifier__weights': 'distance'} | 0.1819 | 0.6585 | 0.1829 | 0.78 |
 | SVM | B | test_tuned_{'classifier__C': 1.0, 'classifier__kernel': 'rbf'} | 0.3244 | 0.5087 | 0.2750 | 66.97 |
 | Random Forest | B | test_tuned_{'max_depth': 10, 'min_samples_split': 5, 'n_estimators': 200} | 0.2952 | 0.5666 | 0.2685 | 21.84 |
+| Custom CNN | C | adamw_lr0.001_BatchSize32_ep35_cosine1cycle_test | 0.6162 | 0.6112 | 0.4599 | 25.27 |
+| EfficientNetB0 (frozen) | C | backbone_frozen_lr0.0001_batchSize32_test | 0.5217 | 0.6039 | 0.4068 | 17.04 |
+| EfficientNetB0 (unfrozen) | C | backbone_unfrozen_lr0.0001_batchSize32_test | 0.8023 | 0.7770 | 0.6851 | 20.42 |
 
 ---
 

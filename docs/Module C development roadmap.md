@@ -102,7 +102,7 @@ Use `X_dummy` to test that forward passes through [`CustomCNN`](file:///d:/F2026
 
 - [done] [model.py](file:///d:/F2026/DS2/Main%20Branch/model.py) (Custom CNN) fully implemented with training loops.
 - [done] [pretrained.py](file:///d:/F2026/DS2/Main%20Branch/pretrained.py) (EfficientNetB0) fully implemented for transfer learning.
-- [done ] Saved model checkpoint files (`.pt`) stored in `models/deep/`.
+- [done] Saved model checkpoint files (`.pt`) stored in `models/deep/`.
 - [done] Populated benchmark rows in [results.csv](file:///d:/F2026/DS2/Main%20Branch/results.csv) under `module="C"`.
 - [done] Training loss/accuracy curves and confusion matrix heatmaps saved to `figures/`.
-- [ in progress] Deep learning methodology, architecture specifications, and results analysis drafted for the final report.
+- [done] Deep learning methodology, architecture specifications, and results analysis documented in [readme.md](file:///d:/F2026/DS2/Main%20Branch/readme.md) and benchmark logs.

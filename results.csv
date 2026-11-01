@@ -19,3 +19,5 @@ Custom_CNN,C,default_adam_lr0.001_BatchSize32_ep15,0.5222,,,1377.18
 Custom_CNN,C,adamw_lr0.001_BatchSize32_ep35_cosine1cycle_test,0.6162,0.6112,0.4599,25.27
 Custom_CNN,C,adamw_lr0.001_BatchSize32_ep35_cosine1cycle_val,0.5981,0.6195,0.483,17.32
 efficientnet_b0,C,backbone_unfrozen_lr0.0001_batchSize32_val,0.7712,0.7931,0.6913,21.03
+efficientnet_b0,C,backbone_frozen_lr0.0001_batchSize32_val,0.4928,0.5927,0.4093,895.4
+efficientnet_b0,C,backbone_frozen_lr0.0001_batchSize32_test,0.5217,0.6039,0.4068,17.04
