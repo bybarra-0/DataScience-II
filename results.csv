@@ -2,6 +2,9 @@ model_name,module,config,balanced_accuracy,accuracy,macro_f1,runtime_s
 RandomForest,A,rf_resize_direct,0.274,0.6614,0.2752,1.88
 RandomForest,A,rf_resize_letterbox,0.2519,0.6418,0.2498,1.95
 RandomForest,A,rf_resize_centercrop,0.2704,0.6496,0.2777,1.98
+efficientnet_b0,C,backbone_unfrozed_lr0.0001_batchSize32_test,0.8023,0.777,0.6851,15.75
+Custom_CNN,C,default_adam_lr0.001_BatchSize32_ep15,0.5222,,,1377.18
+Custom_CNN,C,adamw_lr0.001_BatchSize32_ep35_cosine1cycle_test,0.6162,0.6112,0.4599,14.13
 Logistic Regression,B,default,0.28,0.3576,0.2212,0.04
 KNN,B,default,0.1796,0.6437,0.1666,0.01
 SVM,B,default,0.3169,0.5056,0.2737,2.82
