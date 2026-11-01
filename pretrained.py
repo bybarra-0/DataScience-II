@@ -31,17 +31,19 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-4, help="Fine-tuning learning rate")
     parser.add_argument("--freeze-backbone", action="store_true", help="Freeze convolutional feature extractor")
     parser.add_argument("--eval-split", type = str, default= None, choices= ["val", "test"])
+    parser.add_argument("--plot-cm", action="store_true", default=True, help="Export confusion matrix heatmaps to figures/")
+    parser.add_argument("--no-cm", dest="plot_cm", action="store_false", help="Disable confusion matrix heatmap export")
     args = parser.parse_args()
 
     seed_everything(SEED)
 
-    model_text = "frozen" if args.freeze_backbone else "unfrozed"
+    model_text = "frozen" if args.freeze_backbone else "unfrozen"
     config_desc = "backbone_" + model_text + "_lr" + str(args.lr) + "_batchSize" + str(args.batch_size)
 
     if args.eval_split is not None:
         eval_loader = get_deep_loader(split_name=args.eval_split, batch_size= args.batch_size, shuffle= False)
         model = build_efficientnet_b0(num_classes= NUM_CLASSES, pretrained= False, freeze_backbone= args.freeze_backbone)
-        evaluation_checkpoint(model, "efficientnet_b0", config_desc, eval_loader, args.eval_split)
+        evaluation_checkpoint(model, "efficientnet_b0", config_desc, eval_loader, args.eval_split, plot_cm=args.plot_cm)
         raise SystemExit
 
 
